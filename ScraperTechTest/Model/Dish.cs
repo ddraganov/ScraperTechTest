@@ -1,4 +1,6 @@
-﻿namespace ScraperTechTest.Model
+﻿using System.Text.Json.Serialization;
+
+namespace ScraperTechTest.Model
 {
     public class Dish
     {
@@ -7,5 +9,8 @@
         public string MenuSectionTitle { get; set; }
         public string DishName { get; set; }
         public string DishDescription { get; set; }
+
+        [JsonIgnore]
+        public string DishPage { get; set; }
     }
 }
