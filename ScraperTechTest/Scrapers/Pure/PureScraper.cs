@@ -1,4 +1,5 @@
-﻿using OpenQA.Selenium;
+﻿using Microsoft.Extensions.Logging;
+using OpenQA.Selenium;
 using ScraperTechTest.Extensions;
 using ScraperTechTest.Model;
 using System.Collections.Generic;
@@ -10,6 +11,13 @@ namespace ScraperTechTest.Scrapers.Pure
 {
     public class PureScraper : IScraper
     {
+        private ILogger<PureScraper> _logger;
+
+        public PureScraper(ILogger<PureScraper> logger)
+        {
+            _logger = logger;
+        }
+
         public IEnumerable<Dish> Scrape(string menuUrl, IWebDriver driver)
         {
             var dishes = ScrapeMenuPageInfo(menuUrl, driver);
@@ -33,6 +41,7 @@ namespace ScraperTechTest.Scrapers.Pure
                 GetSubmenuItems(driver).ElementAt(i - 1).Click();
 
                 string menuTitle = GetMenuTitle(driver, i);
+                _logger.LogInformation($"Reading {menuTitle} page");
                 string menuDescription = GetMenuDescription(driver);
 
                 // Iterate over sections
@@ -40,6 +49,7 @@ namespace ScraperTechTest.Scrapers.Pure
                 foreach (var sectionTitleElement in menuSectionsTitleElements)
                 {
                     string menuSectionTitle = sectionTitleElement.Text;
+                    _logger.LogInformation($"Reading {menuSectionTitle} section");
                     dishes.AddRange(GetDishesInSection(sectionTitleElement, driver, menuTitle, menuDescription, menuSectionTitle));
                 }
             }
@@ -65,6 +75,7 @@ namespace ScraperTechTest.Scrapers.Pure
                     DishName = dishDisplaying.GetAttribute("title"),
                     DishPage = dishDisplaying.GetAttribute("href")
                 });
+                _logger.LogInformation($"{dishesInSection.Last().DishName} just collected");
             }
 
             return dishesInSection;
@@ -78,11 +89,12 @@ namespace ScraperTechTest.Scrapers.Pure
                 try
                 {
                     dish.DishDescription = driver.FindElement(By.CssSelector(".menu-item-details > div:nth-child(3) > p")).Text;
+                    _logger.LogInformation($"Dish description successfully scraped from {dish.DishPage}");
                 }
                 catch
                 {
                     // TODO: still don't know what to do with this. Waiting for response
-                    Trace.WriteLine($"The page {dish.DishPage} has different structure than expected. Cannot scrape dish description");
+                    _logger.LogError($"Failed to read {dish.DishPage}");
                 }
             }
         }
