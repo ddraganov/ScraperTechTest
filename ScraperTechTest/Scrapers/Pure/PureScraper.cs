@@ -1,25 +1,17 @@
 ﻿using OpenQA.Selenium;
-using OpenQA.Selenium.Chrome;
 using ScraperTechTest.Extensions;
 using ScraperTechTest.Model;
-using System;
 using System.Collections.Generic;
-using System.IO;
+using System.Collections.ObjectModel;
+using System.Diagnostics;
 using System.Linq;
-using System.Reflection;
-using System.Threading.Tasks;
 
 namespace ScraperTechTest.Scrapers.Pure
 {
-    public class PureScraper
+    public class PureScraper : IScraper
     {
-        public IEnumerable<Dish> Scrape(string menuUrl)
+        public IEnumerable<Dish> Scrape(string menuUrl, IWebDriver driver)
         {
-            // TODO: inject driver
-            ChromeOptions options = new ChromeOptions();
-            options.AddArguments("--kiosk");
-            using var driver = new ChromeDriver(Path.GetDirectoryName(Assembly.GetExecutingAssembly().Location), options);
-
             var dishes = ScrapeMenuPageInfo(menuUrl, driver);
             PupulateDishDescriptions(dishes, driver);
 
@@ -30,40 +22,52 @@ namespace ScraperTechTest.Scrapers.Pure
         {
             driver.Navigate().GoToUrl(menuUrl);
 
-            int subMenuItemsCount = driver.FindElements(By.CssSelector(@"body > nav > ul:nth-child(2) > li:nth-child(2) > ul > li")).Count();
+            int subMenuItemsCount = GetSubmenuItems(driver).Count();
 
             var dishes = new List<Dish>();
+
+            // Iterate over menus
+            // Start from 2 to skip Wellbeing boxes
             for (int i = 2; i <= subMenuItemsCount; i++)
             {
-                //var dish = new Dish();
+                GetSubmenuItems(driver).ElementAt(i - 1).Click();
+
                 string menuTitle = GetMenuTitle(driver, i);
-                driver.FindElements(By.CssSelector("body > nav > ul:nth-child(2) > li:nth-child(2) > ul > li")).ElementAt(i - 1).Click();
+                string menuDescription = GetMenuDescription(driver);
 
-                string menuDescription = driver.FindElement(By.CssSelector("body > main > section > header > p")).Text;
-
+                // Iterate over sections
                 var menuSectionsTitleElements = driver.FindElements(By.CssSelector("h4.menu-title"));
                 foreach (var sectionTitleElement in menuSectionsTitleElements)
                 {
                     string menuSectionTitle = sectionTitleElement.Text;
-                    string f = sectionTitleElement.FindElement(By.CssSelector("a")).GetAttribute("aria-controls");
-
-                    var dishDisplayingsSection = driver.FindElement(By.Id(f));
-                    var dishDisplayings = dishDisplayingsSection.FindElements(By.CssSelector("a[href]"));
-                    foreach (var dishDisplaying in dishDisplayings)
-                    {
-                        dishes.Add(new Dish
-                        {
-                            MenuTitle = menuTitle,
-                            MenuDescription = menuDescription,
-                            MenuSectionTitle = menuSectionTitle,
-                            DishName = dishDisplaying.GetAttribute("title"),
-                            DishPage = dishDisplaying.GetAttribute("href")
-                        });
-                    }
+                    dishes.AddRange(GetDishesInSection(sectionTitleElement, driver, menuTitle, menuDescription, menuSectionTitle));
                 }
             }
 
             return dishes;
+        }
+
+        private static ReadOnlyCollection<IWebElement> GetSubmenuItems(IWebDriver driver)
+        {
+            return driver.FindElements(By.CssSelector(@"body > nav > ul:nth-child(2) > li:nth-child(2) > ul > li"));
+        }
+
+        private IEnumerable<Dish> GetDishesInSection(IWebElement sectionTitleElement, IWebDriver driver, string menuTitle, string menuDescription, string menuSectionTitle)
+        {
+            var dishesInSection = new List<Dish>();
+            foreach (var dishDisplaying in GetDishDisplayings(sectionTitleElement, driver))
+            {
+                dishesInSection.Add(new Dish
+                {
+                    MenuTitle = menuTitle,
+                    MenuDescription = menuDescription,
+                    MenuSectionTitle = menuSectionTitle,
+                    DishName = dishDisplaying.GetAttribute("title"),
+                    DishPage = dishDisplaying.GetAttribute("href")
+                });
+            }
+
+            return dishesInSection;
         }
 
         private void PupulateDishDescriptions(IEnumerable<Dish> dishes, IWebDriver driver)
@@ -77,7 +81,8 @@ namespace ScraperTechTest.Scrapers.Pure
                 }
                 catch
                 {
-                    Console.WriteLine(dish.DishPage);
+                    // TODO: still don't know what to do with this. Waiting for response
+                    Trace.WriteLine($"The page {dish.DishPage} has different structure than expected. Cannot scrape dish description");
                 }
             }
         }
@@ -85,6 +90,19 @@ namespace ScraperTechTest.Scrapers.Pure
         private string GetMenuTitle(IWebDriver driver, int submenuIndex)
         {
             return driver.FindElementSafe(By.CssSelector($"body > nav > ul:nth-child(2) > li:nth-child(2) > ul > li:nth-child({submenuIndex}) > a")).Text;
+        }
+
+        private string GetMenuDescription(IWebDriver driver)
+        {
+            return driver.FindElement(By.CssSelector("body > main > section > header > p")).Text;
+        }
+
+        private IEnumerable<IWebElement> GetDishDisplayings(IWebElement sectionTitleElement, IWebDriver driver)
+        {
+            string dishId = sectionTitleElement.FindElement(By.CssSelector("a")).GetAttribute("aria-controls");
+            var dishDisplayingsSection = driver.FindElement(By.Id(dishId));
+
+            return dishDisplayingsSection.FindElements(By.CssSelector("a[href]"));
         }
     }
 }
