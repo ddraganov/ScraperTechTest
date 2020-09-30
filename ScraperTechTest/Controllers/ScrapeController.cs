@@ -30,6 +30,7 @@ namespace ScraperTechTest.Controllers
             // If we have multiple scrapers logic for picking one should go here.
             // Now we use _pureScraper directly
             var dishes = _pureScraper.Scrape(scrapeRequest.MenuUrl, _webDriver);
+            _webDriver.Quit();
 
             return dishes;
         }

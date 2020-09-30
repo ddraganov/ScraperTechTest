@@ -65,17 +65,25 @@ namespace ScraperTechTest.Scrapers.Pure
         private IEnumerable<Dish> GetDishesInSection(IWebElement sectionTitleElement, IWebDriver driver, string menuTitle, string menuDescription, string menuSectionTitle)
         {
             var dishesInSection = new List<Dish>();
-            foreach (var dishDisplaying in GetDishDisplayings(sectionTitleElement, driver))
+
+            try
             {
-                dishesInSection.Add(new Dish
+                foreach (var dishDisplaying in GetDishDisplayings(sectionTitleElement, driver))
                 {
-                    MenuTitle = menuTitle,
-                    MenuDescription = menuDescription,
-                    MenuSectionTitle = menuSectionTitle,
-                    DishName = dishDisplaying.GetAttribute("title"),
-                    DishPage = dishDisplaying.GetAttribute("href")
-                });
-                _logger.LogInformation($"{dishesInSection.Last().DishName} just collected");
+                    dishesInSection.Add(new Dish
+                    {
+                        MenuTitle = menuTitle,
+                        MenuDescription = menuDescription,
+                        MenuSectionTitle = menuSectionTitle,
+                        DishName = dishDisplaying.GetAttribute("title"),
+                        DishPage = dishDisplaying.GetAttribute("href")
+                    });
+                    _logger.LogInformation($"{dishesInSection.Last().DishName} just collected");
+                }
+            }
+            catch
+            {
+                _logger.LogError($"Error ocurred while scraping main menu page");
             }
 
             return dishesInSection;
@@ -88,7 +96,7 @@ namespace ScraperTechTest.Scrapers.Pure
                 driver.Navigate().GoToUrl(dish.DishPage);
                 try
                 {
-                    dish.DishDescription = driver.FindElement(By.CssSelector(".menu-item-details > div:nth-child(3) > p")).Text;
+                    dish.DishDescription = driver.FindElement(By.CssSelector(".menu-item-details > div:nth-child(3)")).Text;
                     _logger.LogInformation($"Dish description successfully scraped from {dish.DishPage}");
                 }
                 catch
