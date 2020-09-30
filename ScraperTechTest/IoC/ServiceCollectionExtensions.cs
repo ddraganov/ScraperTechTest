@@ -12,8 +12,8 @@ namespace ScraperTechTest.IoC
         {
             ChromeOptions options = new ChromeOptions();
             options.AddArguments("--kiosk");
-            var driver = new ChromeDriver(Path.GetDirectoryName(Assembly.GetExecutingAssembly().Location), options);
-            services.AddScoped<IWebDriver>(x => driver);
+            services.AddScoped<IWebDriver>(x => 
+            new ChromeDriver(Path.GetDirectoryName(Assembly.GetExecutingAssembly().Location), options));
 
             return services;
         }
